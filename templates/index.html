@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Website Copier</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.4/socket.io.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h2>Website Copier</h2>
+
+        <form id="copyFormWget" method="POST" action="/copy-website-wget" onsubmit="return validateForm('copyFormWget')">
+            <h1>Recommended: Copy and Download Using Wget</h1>
+            <input type="text" id="websiteUrlWget" name="websiteUrl" placeholder="Enter Website URL">
+            <button type="submit" id="copyButtonWget">Copy and Download (Wget)</button>
+            <div id="urlErrorWget" class="error-message"></div>
+            <div id="progressContainerWget" class="progress-container" style="display: none;">
+                <p>🐞 Oh no! Looks like there's a bug in our progress bar! Don't worry, it's just stretching its legs. Sit back, relax, and enjoy the show! 🍿</p>
+                <progress id="progressBarWget" value="0" max="100"></progress>
+                <span id="progressLabelWget">0%</span>
+            </div>            
+        </form>
+        
+
+        <form id="copyFormRequests" method="POST" action="/copy-website-requests" onsubmit="return validateForm('copyFormRequests')">
+            <input type="text" id="websiteUrlRequests" name="websiteUrl" placeholder="Enter Website URL">
+            <button type="submit" id="copyButtonRequests">Copy and Download (Requests)</button>
+            <div id="urlErrorRequests" class="error-message"></div>
+            <div id="progressContainerRequests" class="progress-container" style="display: none;">
+                <progress id="progressBarRequests" value="0" max="100"></progress>
+                <span id="progressLabelRequests">0%</span>
+            </div>
+        </form>
+
+ 
+        <div class="note-section">
+            <h3>Notes:</h3>
+            <ul>
+                <li>Please use wget for copying and downloading websites as it is recommended.</li>
+                <li>If any one of the methods doesn't work, try the other one. If both methods fail, there may be an issue with website fetching or the website itself.</li>
+                <li>Note that websites sometimes run on session-based systems, which may lead to cross-session downloading. If this happens (e.g., you find other files or folders downloaded), refresh the website and try to download again.</li>
+                <li>There is a <span class="highlight">bug in the progress bar of wget downloading</span>. Ignore it and wait until it redirects to the other website.</li>
+            </ul>
+        </div>
+        
+    
+    <footer style="position: fixed; bottom: 10px; right: 10px; font-size: 14px; color: #6c757d; background-color: #f8f9fa; padding: 10px; border-radius: 5px; box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1); display: flex; align-items: center;">
+        <span>Made with ❤️ by Ishwar Mhase | Follow me on</span>
+        <a href="https://twitter.com/IshwarMhase" target="_blank" style="color: #1da1f2; text-decoration: none; display: inline-flex; align-items: center; margin-left: 10px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px;">
+                <path d="M22.46 2.2c-.8.35-1.6.63-2.46.83.88-.53 1.56-1.34 1.88-2.3-.83.49-1.75.84-2.72 1.04-.78-.84-1.9-1.36-3.12-1.36-2.38 0-4.31 1.92-4.31 4.3 0 .34.04.67.12.98-3.58-.18-6.75-1.88-8.87-4.47-.37.63-.58 1.37-.58 2.15 0 1.48.75 2.78 1.88 3.54-.7 0-1.36-.21-1.94-.53v.05c0 2.07 1.47 3.8 3.42 4.19-.36.08-.73.12-1.12.12-.27 0-.53-.03-.78-.08.53 1.63 2.03 2.82 3.8 2.85-1.4 1.2-3.17 1.92-5.1 1.92-.33 0-.66-.02-.98-.08 1.82 1.2 3.97 1.9 6.3 1.9 7.56 0 11.68-6.27 11.68-11.68 0-.18 0-.36-.02-.54.8-.58 1.5-1.3 2.06-2.14z"></path>
+            </svg>
+        </a>
+    </footer>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var socket = io.connect('http://127.0.0.1:5000/');
+    
+            var progressOngoing = false; 
+    
+            socket.on('progress_update', function(msg) {
+                if (msg && typeof msg.progress === 'number') {
+                    var progress = msg.progress;
+                    var totalProgress = 100; 
+                    document.getElementById('progressBarRequests').value = progress;
+                    document.getElementById('progressLabelRequests').innerText = `${progress}% (${progress}/${totalProgress})`;
+                    document.getElementById('progressBarWget').value = progress;
+                    document.getElementById('progressLabelWget').innerText = `${progress}% (${progress}/${totalProgress})`;
+    
+                    if (progress === 100) {
+                        enableButtons();
+                        progressOngoing = false; 
+                    }
+                } 
+            });
+    
+            socket.on('disconnect', function() {
+                console.log('Socket disconnected.');
+            });
+    
+            socket.on('connect_error', function(error) {
+                console.error('Socket connection error:', error);
+            });
+    
+            window.validateForm = function(formId) {
+                if (progressOngoing) {
+                    alert("A download is already in progress. Please wait until it completes.");
+                    return false;
+                }
+    
+                var form = document.getElementById(formId);
+                var urlInput = form.querySelector("input[name='websiteUrl']").value.trim();
+                var urlPattern = /^(https?:\/\/)/;
+    
+                if (urlInput === "") {
+                    form.querySelector(".error-message").innerText = "Please enter a URL.";
+                    return false;
+                }
+    
+                if (!urlPattern.test(urlInput)) {
+                    form.querySelector(".error-message").innerText = "Please include 'http://' or 'https://' in the URL.";
+                    return false;
+                } else {
+                    form.querySelector(".error-message").innerText = "";
+                    form.querySelector(".progress-container").style.display = "block";
+    
+                    disableButtons(formId);
+    
+                    socket.emit('start_copying', { websiteUrl: urlInput });
+    
+                    progressOngoing = true;
+                    
+                    return true; 
+                }
+            };
+    
+            function disableButtons(formId) {
+                var form = document.getElementById(formId);
+                var buttons = form.querySelectorAll("button[type='submit']");
+                buttons.forEach(function(button) {
+                    button.disabled = true;
+                });
+            }
+    
+            function enableButtons() {
+                var buttons = document.querySelectorAll("button[type='submit']");
+                buttons.forEach(function(button) {
+                    button.disabled = false;
+                });
+            }
+        });
+    </script>
+
+
+
+</body>
+</html>

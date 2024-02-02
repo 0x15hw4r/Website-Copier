@@ -1,0 +1,5 @@
+beautifulsoup4==4.12.3
+Flask==2.2.3
+Flask_SocketIO==5.3.6
+Requests==2.31.0
+selenium==4.17.2
